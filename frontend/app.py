@@ -13,6 +13,8 @@ from backend.auth import (
 )
 from registration import registration_page
 from dashboard import dashboard_page
+from analysis_page import analysis_page
+from skills_gap_page import skills_gap_page
 
 
 def show_login_page():
@@ -56,6 +58,20 @@ def main():
     if "page" not in st.session_state:
         st.session_state["page"] = "Login"
 
+    if is_user_logged_in():
+        with st.sidebar:
+            if st.button("🏠 Dashboard"):
+                st.session_state["page"] = "Dashboard"
+                st.rerun()
+            if st.button("📊 Analysis"):
+                st.session_state["page"] = "Analysis"
+                st.rerun()
+            if st.button("🎯 Skills Gap"):
+                st.session_state["page"] = "Skills Gap"
+                st.rerun()
+    else:
+        st.session_state["page"] = "Login"
+
     page = st.session_state["page"]
 
     if page == "Login":
@@ -70,6 +86,18 @@ def main():
             st.session_state["page"] = "Login"
             st.rerun()
         dashboard_page()
+
+    elif page == "Analysis":
+        if not is_user_logged_in():
+            st.session_state["page"] = "Login"
+            st.rerun()
+        analysis_page()
+
+    elif page == "Skills Gap":
+        if not is_user_logged_in():
+            st.session_state["page"] = "Login"
+            st.rerun()
+        skills_gap_page()
 
 
 if __name__ == "__main__":
