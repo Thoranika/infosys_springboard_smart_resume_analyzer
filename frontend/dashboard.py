@@ -15,6 +15,8 @@ from utils.database import (
     get_user_by_id,
 )
 from resume_upload import resume_upload_page
+from analysis_page import analysis_page
+from skills_gap_page import skills_gap_page
 
 
 def format_datetime(dt_str: str | None) -> str:
@@ -185,8 +187,8 @@ def dashboard_page():
     st.sidebar.title("Dashboard")
     page = st.sidebar.radio(
         "Go to",
-        ["Overview", "My Profile", "Upload Resume", "Resume Analysis", "Job Recommendations", "Settings"],
-        index=["Overview", "My Profile", "Upload Resume", "Resume Analysis", "Job Recommendations", "Settings"].index(
+        ["Overview", "My Profile", "Upload Resume", "Resume Analysis", "Job Recommendations", "Analysis", "Skills Gap", "Settings"],
+        index=["Overview", "My Profile", "Upload Resume", "Resume Analysis", "Job Recommendations", "Analysis", "Skills Gap", "Settings"].index(
             st.session_state["dashboard_page"]
         ),
     )
@@ -209,5 +211,9 @@ def dashboard_page():
         show_analysis_section(user)
     elif page == "Job Recommendations":
         show_jobs_section(user)
+    elif page == "Analysis":
+        analysis_page()
+    elif page == "Skills Gap":
+        skills_gap_page()
     elif page == "Settings":
         show_settings_section(user)
