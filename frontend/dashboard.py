@@ -7,13 +7,16 @@ sys.path.append(os.path.dirname(os.path.dirname(__file__)))  # project root
 from datetime import datetime
 
 import streamlit as st
+import os
+import sys
+
+# extend Python import path
+sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
 from backend.auth import get_current_user, logout_user
-from utils.database import (
-    get_resume_analysis_for_user,
-    get_job_recommendations_for_user,
-    get_user_by_id,
-)
+from utils.database import get_user_by_id
+
+# existing frontend pages
 from resume_upload import resume_upload_page
 from analysis_page import analysis_page
 from skills_gap_page import skills_gap_page
@@ -168,52 +171,71 @@ def show_settings_section(user: dict):
 
 
 def dashboard_page():
-    # user must exist in session (app.py already checked)
-    st.markdown("<h1 style='text-align: center; color: #E0FFFF;'>AI-Powered Resume & Job Recommendation System</h1>",
-                unsafe_allow_html=True)
+
+    st.markdown(
+        "<h1 style='text-align: center; color: #E0FFFF;'>AI-Powered Resume System</h1>",
+        unsafe_allow_html=True
+    )
     st.write("")
+
+    # validate user login
     current = get_current_user()
 
     if not current:
-        st.error("No user in session. Please log in again.")
+        st.error("Session expired. Please login again.")
         st.session_state["page"] = "Login"
         st.rerun()
 
     user = get_user_by_id(current["id"]) or current
 
-    if "dashboard_page" not in st.session_state:
-        st.session_state["dashboard_page"] = "Overview"
+    # sidebar navigation
+    st.sidebar.title("Dashboard Menu")
 
-    st.sidebar.title("Dashboard")
     page = st.sidebar.radio(
         "Go to",
-        ["Overview", "My Profile", "Upload Resume", "Resume Analysis", "Job Recommendations", "Analysis", "Skills Gap", "Settings"],
-        index=["Overview", "My Profile", "Upload Resume", "Resume Analysis", "Job Recommendations", "Analysis", "Skills Gap", "Settings"].index(
-            st.session_state["dashboard_page"]
-        ),
+        [
+            "Overview",
+            "My Profile",
+            "Upload Resume",
+            "Full Analysis",
+            "Skills Gap",
+            "Settings",
+        ]
     )
-    st.session_state["dashboard_page"] = page
 
-    show_header(user)
+    # top header: welcome + logout
+    col1, col2 = st.columns([3, 1])
+    with col1:
+        st.markdown(f"### 👋 Welcome, **{user['name']}**")
+        st.caption(f"Logged in as {user['email']}")
+    with col2:
+        if st.button("Logout"):
+            logout_user()
+            st.success("Logged out successfully.")
+            st.session_state["page"] = "Login"
+            st.rerun()
+
     st.markdown("---")
 
+    # page routing
     if page == "Overview":
-        show_quick_stats(user)
-        st.markdown("---")
-        show_recent_activity(user)
-        st.markdown("---")
-        show_call_to_actions(user)
+        st.subheader("📌 Overview")
+        st.info("Upload resume → then run analysis features.")
+
     elif page == "My Profile":
-        show_profile_section(user)
+        st.subheader("👤 My Profile")
+        st.write(f"**Name:** {user['name']}")
+        st.write(f"**Email:** {user['email']}")
+
     elif page == "Upload Resume":
-        show_upload_section(user)
-    elif page == "Resume Analysis":
-        show_analysis_section(user)
-    elif page == "Job Recommendations":
-        show_jobs_section(user)
-    elif page == "Analysis":
+        resume_upload_page()
+
+    elif page == "Full Analysis":
         analysis_page()
+
     elif page == "Skills Gap":
         skills_gap_page()
+
     elif page == "Settings":
-        show_settings_section(user)
+        st.subheader("⚙ Settings")
+        st.info("Settings panel coming soon.")

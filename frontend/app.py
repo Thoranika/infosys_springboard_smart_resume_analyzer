@@ -1,16 +1,12 @@
 # frontend/app.py
 
 import sys, os
-# allow imports from frontend, backend, utils
-sys.path.append(os.path.dirname(__file__))  # frontend
-sys.path.append(os.path.dirname(os.path.dirname(__file__)))  # project root
+sys.path.append(os.path.dirname(__file__))                     # frontend
+sys.path.append(os.path.dirname(os.path.dirname(__file__)))    # project root
 
 import streamlit as st
 
-from backend.auth import (
-    is_user_logged_in,
-    login_user,
-)
+from backend.auth import is_user_logged_in, login_user
 from registration import registration_page
 from dashboard import dashboard_page
 from analysis_page import analysis_page
@@ -22,7 +18,7 @@ def show_login_page():
                 unsafe_allow_html=True)
     st.write("")  # spacing
     st.header("🔐 Login")
-    # if already logged in, go to dashboard
+
     if is_user_logged_in():
         st.success("You are already logged in. Redirecting to dashboard...")
         st.session_state["page"] = "Dashboard"
@@ -58,20 +54,6 @@ def main():
     if "page" not in st.session_state:
         st.session_state["page"] = "Login"
 
-    if is_user_logged_in():
-        with st.sidebar:
-            if st.button("🏠 Dashboard"):
-                st.session_state["page"] = "Dashboard"
-                st.rerun()
-            if st.button("📊 Analysis"):
-                st.session_state["page"] = "Analysis"
-                st.rerun()
-            if st.button("🎯 Skills Gap"):
-                st.session_state["page"] = "Skills Gap"
-                st.rerun()
-    else:
-        st.session_state["page"] = "Login"
-
     page = st.session_state["page"]
 
     if page == "Login":
@@ -86,18 +68,6 @@ def main():
             st.session_state["page"] = "Login"
             st.rerun()
         dashboard_page()
-
-    elif page == "Analysis":
-        if not is_user_logged_in():
-            st.session_state["page"] = "Login"
-            st.rerun()
-        analysis_page()
-
-    elif page == "Skills Gap":
-        if not is_user_logged_in():
-            st.session_state["page"] = "Login"
-            st.rerun()
-        skills_gap_page()
 
 
 if __name__ == "__main__":
