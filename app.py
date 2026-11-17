@@ -1,0 +1,15 @@
+"""Primary root entry point for running `streamlit run app.py`."""
+
+from __future__ import annotations
+
+import os
+import sys
+
+PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
+
+from frontend.app import main
+
+if __name__ == "__main__":
+    main()

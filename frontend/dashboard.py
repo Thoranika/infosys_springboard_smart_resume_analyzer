@@ -1,241 +1,199 @@
-# frontend/dashboard.py
+"""Main authenticated User Dashboard hub with full module navigation (Milestone 1 Task 7)."""
 
-import sys, os
-sys.path.append(os.path.dirname(__file__))              # frontend
-sys.path.append(os.path.dirname(os.path.dirname(__file__)))  # project root
-
-from datetime import datetime
+from __future__ import annotations
 
 import streamlit as st
-import os
-import sys
-
-# extend Python import path
-sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
 from backend.auth import get_current_user, logout_user
-from utils.database import get_user_by_id
+from frontend.analysis import analysis_page
+from frontend.improvement import improvement_page
+from frontend.job_preferences import job_preferences_page
+from frontend.job_recommendations import job_recommendations_page
+from frontend.profile import profile_page
+from frontend.settings import settings_page
+from frontend.skills_gap_page import skills_gap_page
+from frontend.upload_resume import upload_resume_page
+from utils.database import (
+    get_dashboard_stats,
+    get_recent_activities,
+    get_user_by_id,
+)
+from utils.helpers import inject_custom_css
 
-# existing frontend pages
-from resume_upload import resume_upload_page
-from analysis_page import analysis_page
-from skills_gap_page import skills_gap_page
-
-
-def format_datetime(dt_str: str | None) -> str:
-    if not dt_str:
-        return "N/A"
-    try:
-        dt = datetime.fromisoformat(dt_str)
-        return dt.strftime("%Y-%m-%d %H:%M")
-    except Exception:
-        return dt_str
-
-
-def show_header(user: dict):
-    col1, col2 = st.columns([3, 1])
-    with col1:
-        st.markdown(f"### 👋 Welcome, **{user['name']}**")
-        st.caption(f"Logged in as {user['email']}")
-    with col2:
-        if st.button("Logout", key="logout_btn"):
-            logout_user()
-            st.success("You have been logged out.")
-            st.session_state["page"] = "Login"
-            st.rerun()
+NAV_OPTIONS = [
+    "Overview",
+    "My Profile",
+    "Upload Resume",
+    "Resume Analysis",
+    "Skills Gap",
+    "Improve Resume",
+    "Job Preferences",
+    "Job Recommendations",
+    "Settings",
+]
 
 
-def show_quick_stats(user: dict):
-    st.subheader("Quick Stats")
-    user_id = user["id"]
-    analyses = get_resume_analysis_for_user(user_id)
-    jobs = get_job_recommendations_for_user(user_id)
-
-    last_analysis_date = analyses[0]["analyzed_at"] if analyses else None
-    resume_status = "Uploaded" if user.get("resume_path") else "Not uploaded yet"
-    job_count = len(jobs)
-
-    c1, c2, c3 = st.columns(3)
-    with c1:
-        st.metric("Resume Status", resume_status)
-    with c2:
-        st.metric("Last Analysis", format_datetime(last_analysis_date))
-    with c3:
-        st.metric("Job Recommendations", job_count)
-
-
-def show_recent_activity(user: dict):
-    st.subheader("Recent Activity")
-    user_id = user["id"]
-    analyses = get_resume_analysis_for_user(user_id)
-    jobs = get_job_recommendations_for_user(user_id)
-
-    events = []
-    for a in analyses[:3]:
-        events.append({"time": a["analyzed_at"], "text": "Resume analysis completed"})
-    for j in jobs[:3]:
-        events.append(
-            {"time": j["scraped_at"], "text": f"Job recommended: {j['job_title']}"}
-        )
-
-    events.sort(key=lambda e: e["time"] or "", reverse=True)
-    events = events[:5]
-
-    if not events:
-        st.info("No recent activity yet. Upload your resume to get started!")
-        return
-
-    for e in events:
-        st.markdown(f"- **{format_datetime(e['time'])}** – {e['text']}")
-
-
-def show_call_to_actions(user: dict):
-    st.subheader("Next Steps")
-    user_id = user["id"]
-    analyses = get_resume_analysis_for_user(user_id)
-    jobs = get_job_recommendations_for_user(user_id)
-
-    has_resume = bool(user.get("resume_path"))
-    has_analysis = bool(analyses)
-    has_jobs = bool(jobs)
-
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.markdown("##### 📄 Resume")
-        if has_resume:
-            st.success("Resume uploaded.")
-        else:
-            st.warning("No resume uploaded. Upload to get started.")
-    with col2:
-        st.markdown("##### 🧠 Resume Analysis")
-        if has_analysis:
-            st.success("Analysis available.")
-        else:
-            st.info("Analysis not available. Upload resume first.")
-    with col3:
-        st.markdown("##### 💼 Job Recommendations")
-        if has_jobs:
-            st.success("Job matches found.")
-        else:
-            st.info("No job recommendations yet.")
-
-
-def show_profile_section(user: dict):
-    st.subheader("My Profile")
-    st.write(f"**Name:** {user['name']}")
-    st.write(f"**Email:** {user['email']}")
-    if user.get("resume_path"):
-        st.write(f"**Resume file:** `{os.path.basename(user['resume_path'])}`")
-    else:
-        st.write("**Resume file:** Not uploaded")
-
-
-def show_upload_section(user: dict):
-    st.subheader("Upload Resume")
-    st.caption("Upload or replace your resume.")
-    resume_upload_page()
-
-
-def show_analysis_section(user: dict):
-    st.subheader("Resume Analysis")
-    analyses = get_resume_analysis_for_user(user["id"])
-    if not analyses:
-        st.warning("No analysis available yet. Please upload a resume first.")
-        return
-    latest = analyses[0]
-    st.markdown(f"**Last analyzed at:** {format_datetime(latest['analyzed_at'])}")
-    with st.expander("Show extracted resume text"):
-        st.text(latest["resume_text"][:5000])
-
-
-def show_jobs_section(user: dict):
-    st.subheader("Job Recommendations")
-    jobs = get_job_recommendations_for_user(user["id"])
-    if not jobs:
-        st.warning("No job recommendations available yet.")
-        return
-    for j in jobs:
-        st.markdown(
-            f"**{j['job_title']}**  \n"
-            f"{j.get('company_name', 'Unknown company')} – {j.get('location','Unknown location')}  \n"
-            f"Match: {j.get('match_percentage', 'N/A')}%"
-        )
-        if j.get("job_url"):
-            st.markdown(f"[Job Link]({j['job_url']})")
-        st.markdown("---")
-
-
-def show_settings_section(user: dict):
-    st.subheader("Settings")
-    st.info("Settings page placeholder.")
-
-
-def dashboard_page():
+def _render_overview(user: dict) -> None:
+    stats = get_dashboard_stats(user["id"])
+    activities = get_recent_activities(user["id"], limit=6)
 
     st.markdown(
-        "<h1 style='text-align: center; color: #E0FFFF;'>AI-Powered Resume System</h1>",
-        unsafe_allow_html=True
+        f"""
+        <div class="hero-banner">
+            <h2>👋 Welcome back, {user['name']}!</h2>
+            <p>Your centralized AI career cockpit — analyze your resume, strengthen weak areas, and match with curated roles.</p>
+        </div>
+        """,
+        unsafe_allow_html=True,
     )
+
+    # Quick Stats Row
+    k1, k2, k3, k4 = st.columns(4)
+    k1.metric("Resume Status", "✅ Uploaded" if stats["has_resume"] else "⏳ Pending")
+    k2.metric(
+        "Latest Resume Score",
+        f"{stats['last_score']:.1f} / 100" if stats["last_score"] is not None else "Not Analyzed",
+    )
+    k3.metric(
+        "Last Analysis Date",
+        str(stats["last_analysis_date"])[:10] if stats["last_analysis_date"] else "N/A",
+    )
+    k4.metric(
+        "Job Matches / Tracked",
+        f"{stats['total_jobs']} ({stats['saved_jobs_count']} tracked)",
+    )
+
     st.write("")
 
-    # validate user login
-    current = get_current_user()
+    # Call-to-Action Workflow Cards
+    st.markdown("### 🚀 Recommended Next Steps")
+    c1, c2, c3 = st.columns(3)
 
+    with c1:
+        st.markdown("<div class='soft-card'><h4>1️⃣ Resume Management</h4>", unsafe_allow_html=True)
+        if stats["has_resume"]:
+            st.write("Your resume is uploaded and extracted. You can replace it anytime or inspect extracted text.")
+        else:
+            st.write("Start by uploading your PDF or DOCX resume (max 5 MB) to unlock AI evaluation.")
+        if st.button("📄 Go to Upload Resume", use_container_width=True, type=("secondary" if stats["has_resume"] else "primary")):
+            st.session_state["nav_page"] = "Upload Resume"
+            st.rerun()
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    with c2:
+        st.markdown("<div class='soft-card'><h4>2️⃣ AI Analysis & Coaching</h4>", unsafe_allow_html=True)
+        if stats["last_score"] is not None:
+            st.write(f"Your current score is **{stats['last_score']:.1f}/100**. Review strengths, weaknesses, and PDF report.")
+        else:
+            st.write("Run weighted scoring, strengths/weaknesses detection, skills gap mapping, and bullet rewrites.")
+        if st.button("🤖 Open Resume Analysis", use_container_width=True, type=("primary" if stats["has_resume"] else "secondary")):
+            st.session_state["nav_page"] = "Resume Analysis"
+            st.rerun()
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    with c3:
+        st.markdown("<div class='soft-card'><h4>3️⃣ Job Matching</h4>", unsafe_allow_html=True)
+        if stats["total_jobs"] > 0:
+            st.write(f"You have **{stats['total_jobs']}** matched job recommendations ready to filter, compare, and track.")
+        else:
+            st.write("Customize your job preferences and discover opportunities scored against your resume.")
+        if st.button("💼 Explore Job Matches", use_container_width=True):
+            st.session_state["nav_page"] = "Job Recommendations" if stats["total_jobs"] > 0 else "Job Preferences"
+            st.rerun()
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    # Onboarding & Recent Activity
+    col_act, col_guide = st.columns([1.3, 1])
+    with col_act:
+        st.markdown("<div class='soft-card'><h4>🕒 Recent Activity</h4>", unsafe_allow_html=True)
+        if not activities:
+            st.info("No recent actions yet. Upload your resume to get started!")
+        else:
+            for act in activities:
+                st.markdown(f"- **{act['activity_type']}**: {act['description']} _({str(act['created_at'])[:16]})_")
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    with col_guide:
+        st.markdown("<div class='soft-card'><h4>💡 First-Time Onboarding Tips</h4>", unsafe_allow_html=True)
+        st.markdown(
+            """
+            - Complete your **My Profile** (experience years & education) for more accurate job match scoring.
+            - Check **Improve Resume** after analysis to mark applied edits and raise your score.
+            - Use **Job Preferences** to filter out unwanted keywords and prioritize remote or local roles.
+            """
+        )
+        st.markdown("</div>", unsafe_allow_html=True)
+
+
+def dashboard_page() -> None:
+    """Render the authenticated dashboard frame, sidebar navigation, and active module."""
+    inject_custom_css()
+
+    current = get_current_user()
     if not current:
-        st.error("Session expired. Please login again.")
+        st.error("Session expired. Please log in again.")
         st.session_state["page"] = "Login"
         st.rerun()
+        return
 
     user = get_user_by_id(current["id"]) or current
 
-    # sidebar navigation
-    st.sidebar.title("Dashboard Menu")
+    if "nav_page" not in st.session_state or st.session_state["nav_page"] not in NAV_OPTIONS:
+        st.session_state["nav_page"] = "Overview"
 
-    page = st.sidebar.radio(
-        "Go to",
-        [
-            "Overview",
-            "My Profile",
-            "Upload Resume",
-            "Full Analysis",
-            "Skills Gap",
-            "Settings",
-        ]
+    # Sidebar Navigation
+    st.sidebar.markdown("## 💼 AI Career Assistant")
+    st.sidebar.caption(f"Signed in as **{user['name']}**")
+
+    current_idx = NAV_OPTIONS.index(st.session_state["nav_page"])
+    selected = st.sidebar.radio(
+        "Navigation",
+        NAV_OPTIONS,
+        index=current_idx,
+        key="sidebar_nav_radio",
+    )
+    if selected != st.session_state["nav_page"]:
+        st.session_state["nav_page"] = selected
+        st.rerun()
+
+    st.sidebar.markdown("---")
+    if st.sidebar.button("🚪 Logout", use_container_width=True):
+        logout_user()
+        st.session_state["page"] = "Login"
+        st.rerun()
+
+    # Active Module Breadcrumb (top logout removed per UI spec)
+    st.caption(
+        f"AI-Powered Resume Analysis & Intelligent Job Recommendation System · "
+        f"Active Module: **{st.session_state['nav_page']}**"
     )
 
-    # top header: welcome + logout
-    col1, col2 = st.columns([3, 1])
-    with col1:
-        st.markdown(f"### 👋 Welcome, **{user['name']}**")
-        st.caption(f"Logged in as {user['email']}")
-    with col2:
-        if st.button("Logout"):
+    active_page = st.session_state["nav_page"]
+    if active_page == "Overview":
+        _render_overview(user)
+    elif active_page == "My Profile":
+        profile_page()
+    elif active_page == "Upload Resume":
+        upload_resume_page()
+    elif active_page == "Resume Analysis":
+        analysis_page()
+    elif active_page == "Skills Gap":
+        skills_gap_page()
+    elif active_page == "Improve Resume":
+        improvement_page()
+    elif active_page == "Job Preferences":
+        job_preferences_page()
+    elif active_page == "Job Recommendations":
+        job_recommendations_page()
+    elif active_page == "Settings":
+        settings_page()
+
+    # Compact, subtle Logout button positioned at bottom-right across all authenticated pages
+    st.write("")
+    st.markdown("<div class='bottom-logout-wrap'></div>", unsafe_allow_html=True)
+    _, _, bottom_right_col = st.columns([6, 1, 1.1])
+    with bottom_right_col:
+        if st.button("🚪 Logout", key="bottom_right_logout_btn"):
             logout_user()
-            st.success("Logged out successfully.")
             st.session_state["page"] = "Login"
             st.rerun()
-
-    st.markdown("---")
-
-    # page routing
-    if page == "Overview":
-        st.subheader("📌 Overview")
-        st.info("Upload resume → then run analysis features.")
-
-    elif page == "My Profile":
-        st.subheader("👤 My Profile")
-        st.write(f"**Name:** {user['name']}")
-        st.write(f"**Email:** {user['email']}")
-
-    elif page == "Upload Resume":
-        resume_upload_page()
-
-    elif page == "Full Analysis":
-        analysis_page()
-
-    elif page == "Skills Gap":
-        skills_gap_page()
-
-    elif page == "Settings":
-        st.subheader("⚙ Settings")
-        st.info("Settings panel coming soon.")

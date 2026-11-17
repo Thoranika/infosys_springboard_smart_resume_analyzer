@@ -1,1 +1,29 @@
+# Environment & Secrets
 .env
+*.env.local
+
+# Virtual Environments & Python Caches
+.venv/
+venv/
+env/
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# IDE & OS Files
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+Git-*.exe
+
+# Runtime Data & Logs
+data/app.db
+data/app.db-journal
+data/app.log*
+data/reports/*.pdf
+data/resumes/*
+!data/resumes/.gitkeep
+!data/reports/.gitkeep
+!data/database/.gitkeep
